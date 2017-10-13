@@ -204,7 +204,6 @@ describe('Feathers Mongoose Service with analogId for people', () => {
     it('can patch a mongoose model', function (done) {
       people.get(_analogIds.Doug).then(dougModel => {
         people.patch(_analogIds.Doug, dougModel).then(data => {
-
           expect(data.name).to.equal('Doug');
           done();
         }).catch(done);

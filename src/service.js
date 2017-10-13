@@ -9,7 +9,7 @@ import isValidObjectId from './helpers/validate-id';
 
 // Create the service.
 class Service {
-  constructor(options) {
+  constructor (options) {
     if (!options) {
       throw new Error('Mongoose options have to be provided');
     }
@@ -34,11 +34,11 @@ class Service {
     this.analogId = options.analogId || false;
   }
 
-  extend(obj) {
+  extend (obj) {
     return Proto.extend(obj, this);
   }
 
-  _find(params, count, getFilter = filter) {
+  _find (params, count, getFilter = filter) {
     const { filters, query } = getFilter(params.query || {});
     const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
@@ -106,7 +106,7 @@ class Service {
     return executeQuery();
   }
 
-  find(params) {
+  find (params) {
     const paginate = (params && typeof params.paginate !== 'undefined') ? params.paginate : this.paginate;
     const result = this._find(params, !!paginate.default,
       query => filter(query, paginate)
@@ -119,7 +119,7 @@ class Service {
     return result;
   }
 
-  _get(id, params = {}) {
+  _get (id, params = {}) {
     params.query = params.query || {};
 
     const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
@@ -159,11 +159,11 @@ class Service {
       .catch(errorHandler);
   }
 
-  get(id, params) {
+  get (id, params) {
     return this._get(id, params);
   }
 
-  _getOrFind(id, params) {
+  _getOrFind (id, params) {
     if (id === null) {
       return this._find(params).then(page => page.data);
     }
@@ -171,7 +171,7 @@ class Service {
     return this._get(id, params);
   }
 
-  create(data, params) {
+  create (data, params) {
     const discriminator = data[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
     return model.create(data)
@@ -188,7 +188,7 @@ class Service {
       .catch(errorHandler);
   }
 
-  update(id, data, params) {
+  update (id, data, params) {
     if (id === null) {
       return Promise.reject(new errors.BadRequest('Not replacing multiple records. Did you mean `patch`?'));
     }
@@ -232,7 +232,7 @@ class Service {
       .catch(errorHandler);
   }
 
-  patch(id, data, params) {
+  patch (id, data, params) {
     const query = Object.assign({}, filter(params.query || {}).query);
     const mapIds = page => page.data.map(current => current[this.id]);
 
@@ -243,7 +243,7 @@ class Service {
     if (this.useAnalogId(id)) {
       params[this.analogId] = id;
       ids = this._find(params)
-        .then(mapIds)
+        .then(mapIds);
     } else {
       ids = id === null ? this._find(params)
         .then(mapIds) : Promise.resolve([id]);
@@ -289,7 +289,6 @@ class Service {
             query: { [this.id]: { $in: idList } }
           };
 
-
           const findParams = idList.length ? Object.assign({}, params, queryObject) : params;
 
           if (params.query && params.query.$populate) {
@@ -316,7 +315,7 @@ class Service {
     }
   }
 
-  remove(id, params) {
+  remove (id, params) {
     const query = Object.assign({}, filter(params.query || {}).query);
 
     if (id !== null) {
@@ -341,7 +340,7 @@ class Service {
       .catch(errorHandler);
   }
 
-  useAnalogId(id) {
+  useAnalogId (id) {
     if (id instanceof Types.ObjectId) {
       return false;
     }
@@ -349,7 +348,7 @@ class Service {
   }
 }
 
-export default function init(options) {
+export default function init (options) {
   return new Service(options);
 }
 
