@@ -92,6 +92,15 @@ app.use('messages', service({,
   }
 }));
 
+// Connect to the db, create and register a Feathers service with analogId, if analogId set some [fieldName] (unique) and [id] in request is not valid ObjectId then search by field with name [fieldName];
+app.use('messages', service({,
+  Model: Message,
+  paginate: {
+    default: 2,
+    max: 4
+  }
+}));
+
 // A basic error handler, just like Express
 app.use(errors.handler());
 

@@ -1,8 +1,8 @@
 {
-  "name": "feathers-mongoose",
-  "description": "A Feathers service adapter for the Mongoose ORM",
+  "name": "feathers-mongoose-with-analog-id",
+  "description": "A Feathers service adapter for the Mongoose ORM extendet for using analog id",
   "version": "5.1.2",
-  "homepage": "https://github.com/feathersjs/feathers-mongoose",
+  "homepage": "https://github.com/abrevior/feathers-mongoose",
   "main": "lib/",
   "keywords": [
     "feathers",
@@ -18,7 +18,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/feathersjs/feathers-mongoose.git"
+    "url": "git://github.com/abrevior/feathers-mongoose.git"
   },
   "author": {
     "name": "Feathers contributors",
@@ -28,10 +28,11 @@
   "contributors": [
     "Eric Kryski <e.kryski@gmail.com> (http://erickryski.com)",
     "Glavin Wiechert <glavin.wiechert@gmail.com> (https://github.com/Glavin001)",
-    "Marshall Thompson <marshall@creativeideal.net> (https://github.com/marshallswain)"
+    "Marshall Thompson <marshall@creativeideal.net> (https://github.com/marshallswain)",
+    "Sergey Kolesnk <kolesnk.s@gmail.com> (https://github.com/abrevior)"
   ],
   "bugs": {
-    "url": "https://github.com/feathersjs/feathers-mongoose/issues"
+    "url": "https://github.com/abrevior/feathers-mongoose/issues"
   },
   "engines": {
     "node": ">= 4"
