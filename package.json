@@ -67,6 +67,7 @@
     "feathers-errors": "^2.0.1",
     "feathers-query-filters": "^2.1.2",
     "lodash.omit": "^4.3.0",
+    "mongoose": "^4.12.1",
     "uberproto": "^1.2.0"
   },
   "devDependencies": {

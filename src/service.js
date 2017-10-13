@@ -1,13 +1,15 @@
 import omit from 'lodash.omit';
 import Proto from 'uberproto';
+import { Types } from 'mongoose';
 import filter from 'feathers-query-filters';
 import { select } from 'feathers-commons';
 import errors from 'feathers-errors';
 import errorHandler from './error-handler';
+import isValidObjectId from './helpers/validate-id';
 
 // Create the service.
 class Service {
-  constructor (options) {
+  constructor(options) {
     if (!options) {
       throw new Error('Mongoose options have to be provided');
     }
@@ -29,13 +31,14 @@ class Service {
     this.lean = options.lean === undefined ? true : options.lean;
     this.overwrite = options.overwrite !== false;
     this.events = options.events || [];
+    this.analogId = options.analogId || false;
   }
 
-  extend (obj) {
+  extend(obj) {
     return Proto.extend(obj, this);
   }
 
-  _find (params, count, getFilter = filter) {
+  _find(params, count, getFilter = filter) {
     const { filters, query } = getFilter(params.query || {});
     const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
@@ -103,7 +106,7 @@ class Service {
     return executeQuery();
   }
 
-  find (params) {
+  find(params) {
     const paginate = (params && typeof params.paginate !== 'undefined') ? params.paginate : this.paginate;
     const result = this._find(params, !!paginate.default,
       query => filter(query, paginate)
@@ -116,13 +119,14 @@ class Service {
     return result;
   }
 
-  _get (id, params = {}) {
+  _get(id, params = {}) {
     params.query = params.query || {};
 
     const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
-    let modelQuery = model
-      .findOne({ [this.id]: id });
+    let modelQuery = this.useAnalogId(id)
+      ? model.findOne({ [this.analogId]: id })
+      : model.findOne({ [this.id]: id });
 
     // Handle $populate
     if (params.query.$populate) {
@@ -155,11 +159,11 @@ class Service {
       .catch(errorHandler);
   }
 
-  get (id, params) {
+  get(id, params) {
     return this._get(id, params);
   }
 
-  _getOrFind (id, params) {
+  _getOrFind(id, params) {
     if (id === null) {
       return this._find(params).then(page => page.data);
     }
@@ -167,7 +171,7 @@ class Service {
     return this._get(id, params);
   }
 
-  create (data, params) {
+  create(data, params) {
     const discriminator = data[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
     return model.create(data)
@@ -184,7 +188,7 @@ class Service {
       .catch(errorHandler);
   }
 
-  update (id, data, params) {
+  update(id, data, params) {
     if (id === null) {
       return Promise.reject(new errors.BadRequest('Not replacing multiple records. Did you mean `patch`?'));
     }
@@ -213,7 +217,9 @@ class Service {
 
     const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
     const model = this.discriminators[discriminator] || this.Model;
-    let modelQuery = model.findOneAndUpdate({ [this.id]: id }, data, options);
+    let modelQuery = this.useAnalogId(id)
+      ? model.findOneAndUpdate({ [this.analogId]: id }, data, options)
+      : model.findOneAndUpdate({ [this.id]: id }, data, options);
 
     if (params && params.query && params.query.$populate) {
       modelQuery = modelQuery.populate(params.query.$populate);
@@ -226,15 +232,22 @@ class Service {
       .catch(errorHandler);
   }
 
-  patch (id, data, params) {
+  patch(id, data, params) {
     const query = Object.assign({}, filter(params.query || {}).query);
     const mapIds = page => page.data.map(current => current[this.id]);
 
     // By default we will just query for the one id. For multi patch
     // we create a list of the ids of all items that will be changed
     // to re-query them after the update
-    const ids = id === null ? this._find(params)
-        .then(mapIds) : Promise.resolve([ id ]);
+    let ids = null;
+    if (this.useAnalogId(id)) {
+      params[this.analogId] = id;
+      ids = this._find(params)
+        .then(mapIds)
+    } else {
+      ids = id === null ? this._find(params)
+        .then(mapIds) : Promise.resolve([id]);
+    }
 
     // Handle case where data might be a mongoose model
     if (typeof data.toObject === 'function') {
@@ -251,7 +264,7 @@ class Service {
       context: 'query'
     }, params.mongoose);
 
-    if (id !== null) {
+    if (id !== null && !this.useAnalogId(id)) {
       query[this.id] = id;
     }
 
@@ -271,11 +284,13 @@ class Service {
         .then(idList => {
           // Create a new query that re-queries all ids that
           // were originally changed
-          const findParams = idList.length ? Object.assign({}, params, {
-            query: {
-              [this.id]: { $in: idList }
-            }
-          }) : params;
+
+          const queryObject = {
+            query: { [this.id]: { $in: idList } }
+          };
+
+
+          const findParams = idList.length ? Object.assign({}, params, queryObject) : params;
 
           if (params.query && params.query.$populate) {
             findParams.query.$populate = params.query.$populate;
@@ -289,7 +304,10 @@ class Service {
             .update(omit(query, '$populate'), data, options)
             .lean(this.lean)
             .exec()
-            .then(() => this._getOrFind(id, findParams));
+            .then(() => {
+              let data123 = this._getOrFind(id, findParams);
+              return data123;
+            });
         })
         .then(select(params, this.id))
         .catch(errorHandler);
@@ -298,11 +316,15 @@ class Service {
     }
   }
 
-  remove (id, params) {
+  remove(id, params) {
     const query = Object.assign({}, filter(params.query || {}).query);
 
     if (id !== null) {
-      query[this.id] = id;
+      if (this.useAnalogId(id)) {
+        query[this.analogId] = id;
+      } else {
+        query[this.id] = id;
+      }
     }
 
     // NOTE (EK): First fetch the record(s) so that we can return
@@ -318,9 +340,16 @@ class Service {
       )
       .catch(errorHandler);
   }
+
+  useAnalogId(id) {
+    if (id instanceof Types.ObjectId) {
+      return false;
+    }
+    return this.id === '_id' && !isValidObjectId(id) && this.analogId !== false && id !== null;
+  }
 }
 
-export default function init (options) {
+export default function init(options) {
   return new Service(options);
 }
 

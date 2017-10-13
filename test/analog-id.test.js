@@ -9,6 +9,7 @@ import server from './test-app';
 import { User, Pet, Peeps, CustomPeeps, Post, TextPost } from './models';
 
 const _ids = {};
+const _analogIds = {};
 const _petIds = {};
 const app = feathers()
   .use('/peeps', service({ Model: Peeps, events: ['testing'] }))
@@ -17,7 +18,7 @@ const app = feathers()
     Model: CustomPeeps,
     events: ['testing']
   }))
-  .use('/people', service({ Model: User, lean: false, analogId: 'name' }))
+  .use('/people', service({ Model: User, analogId: 'name', lean: false }))
   .use('/pets', service({ Model: Pet, lean: false }))
   .use('/people2', service({ Model: User, analogId: 'name' }))
   .use('/pets2', service({ Model: Pet }))
@@ -30,7 +31,7 @@ const posts = app.service('posts');
 
 let testApp;
 
-describe('Feathers Mongoose Service', () => {
+describe('Feathers Mongoose Service with analogId for people', () => {
   describe('Requiring', () => {
     const lib = require('../lib');
 
@@ -120,6 +121,7 @@ describe('Feathers Mongoose Service', () => {
           pets: [pet._id]
         }).then(user => {
           _ids.Doug = user._id;
+          _analogIds.Doug = user.name;
         });
       });
     });
@@ -193,15 +195,16 @@ describe('Feathers Mongoose Service', () => {
         }
       };
 
-      people.get(_ids.Doug, params).then(data => {
+      people.get(_analogIds.Doug, params).then(data => {
         expect(data.pets[0].name).to.equal('Rufus');
         done();
       }).catch(done);
     });
 
     it('can patch a mongoose model', function (done) {
-      people.get(_ids.Doug).then(dougModel => {
-        people.patch(_ids.Doug, dougModel).then(data => {
+      people.get(_analogIds.Doug).then(dougModel => {
+        people.patch(_analogIds.Doug, dougModel).then(data => {
+
           expect(data.name).to.equal('Doug');
           done();
         }).catch(done);
@@ -209,8 +212,8 @@ describe('Feathers Mongoose Service', () => {
     });
 
     it('can patch a mongoose model', function (done) {
-      people.get(_ids.Doug).then(dougModel => {
-        people.update(_ids.Doug, dougModel).then(data => {
+      people.get(_analogIds.Doug).then(dougModel => {
+        people.update(_analogIds.Doug, dougModel).then(data => {
           expect(data.name).to.equal('Doug');
           done();
         }).catch(done);
@@ -240,12 +243,13 @@ describe('Feathers Mongoose Service', () => {
         }
       };
 
-      people.get(_ids.Doug).then(doug => {
+      people.get(_analogIds.Doug).then(doug => {
         var newDoug = doug.toObject();
         newDoug.name = 'Bob';
 
-        people.update(_ids.Doug, newDoug, params).then(data => {
+        people.update(_analogIds.Doug, newDoug, params).then(data => {
           expect(data.name).to.equal('Bob');
+          _analogIds.Doug = newDoug.name;
           expect(data.pets[0].name).to.equal('Rufus');
           done();
         }).catch(done);
@@ -258,9 +262,10 @@ describe('Feathers Mongoose Service', () => {
           $populate: ['pets']
         }
       };
-
-      people.patch(_ids.Doug, { name: 'Bob' }, params).then(data => {
+      _analogIds.Doug = 'Bob';
+      people.patch(_analogIds.Doug, { name: 'Bob' }, params).then(data => {
         expect(data.name).to.equal('Bob');
+        _analogIds.Doug = data.name;
         expect(data.pets[0].name).to.equal('Rufus');
         done();
       }).catch(done);
@@ -268,7 +273,7 @@ describe('Feathers Mongoose Service', () => {
 
     it('can $push an item onto an array with update', function (done) {
       pets.create({ type: 'cat', name: 'Margeaux' }).then(margeaux => {
-        people.update(_ids.Doug, { $push: { pets: margeaux } })
+        people.update(_analogIds.Doug, { $push: { pets: margeaux } })
           .then(() => {
             var params = {
               query: {
@@ -276,7 +281,7 @@ describe('Feathers Mongoose Service', () => {
               }
             };
 
-            people.get(_ids.Doug, params).then(data => {
+            people.get(_analogIds.Doug, params).then(data => {
               expect(data.pets[1].name).to.equal('Margeaux');
               done();
             }).catch(done);
@@ -286,7 +291,7 @@ describe('Feathers Mongoose Service', () => {
 
     it('can $push an item onto an array with patch', function (done) {
       pets.create({ type: 'cat', name: 'Margeaux' }).then(margeaux => {
-        people.patch(_ids.Doug, { $push: { pets: margeaux } })
+        people.patch(_analogIds.Doug, { $push: { pets: margeaux } })
           .then(() => {
             var params = {
               query: {
@@ -294,7 +299,7 @@ describe('Feathers Mongoose Service', () => {
               }
             };
 
-            people.get(_ids.Doug, params).then(data => {
+            people.get(_analogIds.Doug, params).then(data => {
               expect(data.pets[1].name).to.equal('Margeaux');
               done();
             }).catch(done);
