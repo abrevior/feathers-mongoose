@@ -261,7 +261,6 @@ describe('Feathers Mongoose Service with analogId for people', () => {
           $populate: ['pets']
         }
       };
-      _analogIds.Doug = 'Bob';
       people.patch(_analogIds.Doug, { name: 'Bob' }, params).then(data => {
         expect(data.name).to.equal('Bob');
         _analogIds.Doug = data.name;

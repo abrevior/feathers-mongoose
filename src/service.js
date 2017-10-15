@@ -1,4 +1,5 @@
 import omit from 'lodash.omit';
+import _ from 'lodash';
 import Proto from 'uberproto';
 import { Types } from 'mongoose';
 import filter from 'feathers-query-filters';
@@ -235,18 +236,19 @@ class Service {
   patch (id, data, params) {
     const query = Object.assign({}, filter(params.query || {}).query);
     const mapIds = page => page.data.map(current => current[this.id]);
+    const getId = data => [_.get(data, 'id')];
 
     // By default we will just query for the one id. For multi patch
     // we create a list of the ids of all items that will be changed
     // to re-query them after the update
+    const useAnalogId = this.useAnalogId(id);
     let ids = null;
-    if (this.useAnalogId(id)) {
-      params[this.analogId] = id;
-      ids = this._find(params)
-        .then(mapIds);
+    if (useAnalogId) {
+      ids = this.Model.findOne({ [this.analogId]: id }).then(getId);
+    } else if (id !== null) {
+      ids = Promise.resolve([id]);
     } else {
-      ids = id === null ? this._find(params)
-        .then(mapIds) : Promise.resolve([id]);
+      ids = this._find(params).then(mapIds);
     }
 
     // Handle case where data might be a mongoose model
@@ -264,7 +266,7 @@ class Service {
       context: 'query'
     }, params.mongoose);
 
-    if (id !== null && !this.useAnalogId(id)) {
+    if (id !== null && !useAnalogId) {
       query[this.id] = id;
     }
 
@@ -284,12 +286,16 @@ class Service {
         .then(idList => {
           // Create a new query that re-queries all ids that
           // were originally changed
-
-          const queryObject = {
-            query: { [this.id]: { $in: idList } }
-          };
-
-          const findParams = idList.length ? Object.assign({}, params, queryObject) : params;
+          if (Array.isArray(idList) && idList.length === 1) {
+            id = idList[0];
+          } else {
+            id = null;
+          }
+          const findParams = idList.length ? Object.assign({}, params, {
+            query: {
+              [this.id]: { $in: idList }
+            }
+          }) : params;
 
           if (params.query && params.query.$populate) {
             findParams.query.$populate = params.query.$populate;
@@ -300,13 +306,10 @@ class Service {
           const discriminator = (params.query || {})[this.discriminatorKey] || this.discriminatorKey;
           const model = this.discriminators[discriminator] || this.Model;
           return model
-            .update(omit(query, '$populate'), data, options)
+            .update(omit(findParams.query, '$populate'), data, options)
             .lean(this.lean)
             .exec()
-            .then(() => {
-              let data123 = this._getOrFind(id, findParams);
-              return data123;
-            });
+            .then(() => this._getOrFind(id, findParams));
         })
         .then(select(params, this.id))
         .catch(errorHandler);
